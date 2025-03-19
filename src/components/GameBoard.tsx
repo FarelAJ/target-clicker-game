@@ -87,13 +87,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ onGameOver }) => {
         }
         cancelAnimationFrame(moveFrameRef.current)
 
+        const finalScore = score;  // Capture the final score
+        console.log('Game Over - Final Score:', finalScore); // Debug log
         const playerName = prompt('Game Over! Enter your name:') || 'Anonymous'
-        onGameOver(playerName, score)
+        console.log('Submitting score:', { name: playerName, score: finalScore }); // Debug log
+        onGameOver(playerName, finalScore)
     }, [score, onGameOver])
 
     const handleTargetClick = () => {
         if (!isPlaying) return
-        setScore(prev => prev + 1)
+        setScore(prev => {
+            const newScore = prev + 1;
+            console.log('Score increased to:', newScore); // Debug log
+            return newScore;
+        });
         generateNewPosition()
     }
 

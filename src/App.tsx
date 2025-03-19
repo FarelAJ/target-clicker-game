@@ -23,11 +23,13 @@ function App() {
 
     const fetchHighScores = async () => {
         try {
+            console.log('Fetching high scores...');
             const response = await fetch('/api/highscores')
             if (!response.ok) {
                 throw new Error('Failed to fetch scores')
             }
             const data = await response.json()
+            console.log('Received scores:', data);
             setHighScores(data)
             setError(null)
         } catch (error) {
@@ -40,6 +42,7 @@ function App() {
 
     const submitScore = async (name: string, score: number) => {
         try {
+            console.log('Submitting score:', { name, score });
             const response = await fetch('/api/highscores', {
                 method: 'POST',
                 headers: {
@@ -47,10 +50,15 @@ function App() {
                 },
                 body: JSON.stringify({ name, score }),
             })
+            
             if (!response.ok) {
-                throw new Error('Failed to submit score')
+                const errorData = await response.json();
+                console.error('Server error:', errorData);
+                throw new Error(errorData.error || 'Failed to submit score')
             }
+            
             const data = await response.json()
+            console.log('Score submission response:', data);
             setHighScores(data)
             setError(null)
         } catch (error) {

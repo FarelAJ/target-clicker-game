@@ -5,39 +5,27 @@ import os
 import json
 import sys
 import requests
-import base64
 
 app = Flask(__name__)
 CORS(app)
 
 def get_upstash_client():
     """Get Upstash REST client configuration"""
-    url = os.environ.get('UPSTASH_REDIS_REST_URL')
-    token = os.environ.get('UPSTASH_REDIS_REST_TOKEN')
-    
-    if not url or not token:
-        raise ValueError("Missing Upstash configuration. Please set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN")
-    
-    return {
-        'url': url.rstrip('/'),
-        'token': token
-    }
+    url = 'https://stirred-fly-26545.upstash.io'
+    token = 'AWexAAIjcDFmMTBiMmYyYjE4Yjk0M2Y1YTgzYTU4OGZiODBiNWYwNnAxMA'
+    return {'url': url, 'token': token}
 
 def upstash_request(command, *args):
     """Make request to Upstash REST API"""
     try:
         config = get_upstash_client()
         
-        # Encode command and arguments
-        encoded_args = [base64.b64encode(str(arg).encode()).decode() for arg in args]
-        encoded_command = base64.b64encode(command.encode()).decode()
-        
         # Prepare request
         headers = {
             'Authorization': f'Bearer {config["token"]}'
         }
         body = {
-            'cmd': [encoded_command, *encoded_args]
+            'cmd': [command, *args]
         }
         
         # Make request

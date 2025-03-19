@@ -12,12 +12,23 @@ interface HighScore {
 function App() {
     const [highScores, setHighScores] = useState<HighScore[]>([])
 
-    // Load scores from localStorage on mount
+    // Load scores from scores.json on mount
     useEffect(() => {
-        const savedScores = localStorage.getItem('highScores')
-        if (savedScores) {
-            setHighScores(JSON.parse(savedScores))
-        }
+        fetch('/scores.json')
+            .then(response => response.json())
+            .then(data => {
+                if (data.scores) {
+                    setHighScores(data.scores)
+                }
+            })
+            .catch(error => {
+                console.error('Error loading scores:', error)
+                // If there's an error loading scores.json, try localStorage as fallback
+                const savedScores = localStorage.getItem('highScores')
+                if (savedScores) {
+                    setHighScores(JSON.parse(savedScores))
+                }
+            })
     }, [])
 
     const submitScore = (name: string, score: number) => {
@@ -33,7 +44,20 @@ function App() {
             .slice(0, 10) // Keep only top 10 scores
 
         setHighScores(updatedScores)
-        localStorage.setItem('highScores', JSON.stringify(updatedScores))
+        
+        // Save to scores.json
+        const scoresData = { scores: updatedScores }
+        fetch('/scores.json', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(scoresData, null, 2)
+        }).catch(error => {
+            console.error('Error saving scores:', error)
+            // Fallback to localStorage if saving to file fails
+            localStorage.setItem('highScores', JSON.stringify(updatedScores))
+        })
     }
 
     return (

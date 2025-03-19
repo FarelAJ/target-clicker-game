@@ -50,7 +50,9 @@ function App() {
             if (!response.ok) {
                 throw new Error('Failed to submit score')
             }
-            await fetchHighScores()
+            const data = await response.json()
+            setHighScores(data)
+            setError(null)
         } catch (error) {
             console.error('Error submitting score:', error)
             alert('Failed to submit score. Please try again.')

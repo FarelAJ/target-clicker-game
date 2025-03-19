@@ -11,60 +11,29 @@ interface HighScore {
 
 function App() {
     const [highScores, setHighScores] = useState<HighScore[]>([])
-    const [error, setError] = useState<string | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
 
+    // Load scores from localStorage on mount
     useEffect(() => {
-        fetchHighScores()
-        // Fetch scores every 5 seconds to keep the display current
-        const interval = setInterval(fetchHighScores, 5000)
-        return () => clearInterval(interval)
+        const savedScores = localStorage.getItem('highScores')
+        if (savedScores) {
+            setHighScores(JSON.parse(savedScores))
+        }
     }, [])
 
-    const fetchHighScores = async () => {
-        try {
-            console.log('Fetching high scores...');
-            const response = await fetch('/api/highscores')
-            if (!response.ok) {
-                throw new Error('Failed to fetch scores')
-            }
-            const data = await response.json()
-            console.log('Received scores:', data);
-            setHighScores(data)
-            setError(null)
-        } catch (error) {
-            console.error('Error fetching high scores:', error)
-            setError('Failed to load scores. Please try again later.')
-        } finally {
-            setIsLoading(false)
+    const submitScore = (name: string, score: number) => {
+        const newScore: HighScore = {
+            id: Date.now(),
+            name,
+            score,
+            date: new Date().toISOString()
         }
-    }
 
-    const submitScore = async (name: string, score: number) => {
-        try {
-            console.log('Submitting score:', { name, score });
-            const response = await fetch('/api/highscores', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ name, score }),
-            })
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.error('Server error:', errorData);
-                throw new Error(errorData.error || 'Failed to submit score')
-            }
-            
-            const data = await response.json()
-            console.log('Score submission response:', data);
-            setHighScores(data)
-            setError(null)
-        } catch (error) {
-            console.error('Error submitting score:', error)
-            alert('Failed to submit score. Please try again.')
-        }
+        const updatedScores = [...highScores, newScore]
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 10) // Keep only top 10 scores
+
+        setHighScores(updatedScores)
+        localStorage.setItem('highScores', JSON.stringify(updatedScores))
     }
 
     return (
@@ -82,36 +51,11 @@ function App() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <GameBoard onGameOver={submitScore} />
-                    {error ? (
-                        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-                            <div className="text-red-500 text-center p-4">
-                                <p className="text-xl mb-4">⚠️</p>
-                                <p>{error}</p>
-                                <button
-                                    onClick={() => {
-                                        setError(null);
-                                        fetchHighScores();
-                                    }}
-                                    className="mt-4 px-4 py-2 bg-game-primary rounded hover:bg-opacity-80"
-                                >
-                                    Retry
-                                </button>
-                            </div>
-                        </div>
-                    ) : isLoading ? (
-                        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-                            <div className="text-center p-4">
-                                <div className="animate-spin text-4xl mb-4">⚡</div>
-                                <p>Loading scores...</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <Scoreboard scores={highScores} />
-                    )}
+                    <Scoreboard scores={highScores} />
                 </div>
 
                 <footer className="mt-12 text-center text-gray-400">
-                    <p>Built with React, TypeScript, and Flask</p>
+                    <p>Built with React and TypeScript</p>
                 </footer>
             </div>
         </div>

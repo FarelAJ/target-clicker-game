@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react'
 import GameBoard from './components/GameBoard'
 import Scoreboard from './components/Scoreboard'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-
 interface HighScore {
     id: number;
     name: string;
@@ -25,7 +23,7 @@ function App() {
 
     const fetchHighScores = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/highscores`)
+            const response = await fetch('/api/highscores')
             if (!response.ok) {
                 throw new Error('Failed to fetch scores')
             }
@@ -42,7 +40,7 @@ function App() {
 
     const submitScore = async (name: string, score: number) => {
         try {
-            const response = await fetch(`${API_URL}/api/highscores`, {
+            const response = await fetch('/api/highscores', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

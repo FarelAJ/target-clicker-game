@@ -4,36 +4,38 @@ from datetime import datetime
 import os
 import json
 import sys
-from pymongo import MongoClient
-from bson import ObjectId
+import redis
+from urllib.parse import urlparse
 
 app = Flask(__name__)
 CORS(app)
 
-# Global variable to track MongoDB connection
-mongodb_client = None
-highscores_collection = None
-
-def get_mongodb():
-    global mongodb_client, highscores_collection
-    if mongodb_client is None:
-        try:
-            MONGODB_URI = os.environ.get('MONGODB_URI')
-            if not MONGODB_URI:
-                raise ValueError("MONGODB_URI environment variable is not set")
-            
-            print(f"Connecting to MongoDB...", file=sys.stderr)
-            mongodb_client = MongoClient(MONGODB_URI)
-            db = mongodb_client.get_database('highscores_db')
-            highscores_collection = db.get_collection('highscores')
-            
-            # Test connection
-            mongodb_client.admin.command('ping')
-            print("Successfully connected to MongoDB!", file=sys.stderr)
-        except Exception as e:
-            print(f"MongoDB connection error: {str(e)}", file=sys.stderr)
-            raise e
-    return highscores_collection
+# Vercel KV (Redis) connection
+def get_redis():
+    try:
+        REDIS_URL = os.environ.get('REDIS_URL', os.environ.get('KV_URL'))
+        if not REDIS_URL:
+            raise ValueError("No Redis URL found in environment variables")
+        
+        print(f"Connecting to Redis...", file=sys.stderr)
+        url = urlparse(REDIS_URL)
+        
+        r = redis.Redis(
+            host=url.hostname,
+            port=url.port,
+            username=url.username,
+            password=url.password,
+            ssl=True,
+            ssl_cert_reqs=None
+        )
+        
+        # Test connection
+        r.ping()
+        print("Successfully connected to Redis!", file=sys.stderr)
+        return r
+    except Exception as e:
+        print(f"Redis connection error: {str(e)}", file=sys.stderr)
+        raise e
 
 @app.route('/')
 def home():
@@ -58,12 +60,17 @@ def handle_error(error):
 @app.route('/api/highscores', methods=['GET'])
 def get_highscores():
     try:
-        collection = get_mongodb()
-        scores = list(collection.find().sort('score', -1))
-        for score in scores:
-            score['_id'] = str(score['_id'])
-            if 'date' in score:
-                score['date'] = score['date'].isoformat()
+        r = get_redis()
+        # Get all scores from Redis
+        scores = []
+        for key in r.scan_iter("score:*"):
+            score_data = r.get(key)
+            if score_data:
+                score = json.loads(score_data)
+                scores.append(score)
+        
+        # Sort by score descending
+        scores.sort(key=lambda x: x['score'], reverse=True)
         return jsonify(scores)
     except Exception as e:
         print(f"Error in get_highscores: {str(e)}", file=sys.stderr)
@@ -72,21 +79,21 @@ def get_highscores():
 @app.route('/api/highscores', methods=['POST'])
 def add_highscore():
     try:
-        collection = get_mongodb()
+        r = get_redis()
         data = request.json
         if not data or 'name' not in data or 'score' not in data:
             return jsonify({'error': 'Missing required fields: name and score'}), 400
 
+        score_id = r.incr('score_counter')
         new_score = {
+            'id': score_id,
             'name': data['name'],
             'score': int(data['score']),
-            'date': datetime.utcnow()
+            'date': datetime.utcnow().isoformat()
         }
 
-        result = collection.insert_one(new_score)
-        new_score['_id'] = str(result.inserted_id)
-        new_score['date'] = new_score['date'].isoformat()
-
+        # Store in Redis
+        r.set(f"score:{score_id}", json.dumps(new_score))
         return jsonify(new_score), 201
     except ValueError as e:
         return jsonify({"error": f"Invalid score value: {str(e)}"}), 400
@@ -97,7 +104,8 @@ def add_highscore():
 @app.route('/api/health', methods=['GET'])
 def health_check():
     try:
-        collection = get_mongodb()
+        r = get_redis()
+        r.ping()
         return jsonify({
             "status": "healthy",
             "database": "connected",
